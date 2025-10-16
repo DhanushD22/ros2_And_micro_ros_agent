@@ -22,3 +22,9 @@ chmod +x install_ros2_and_microros_agent.sh
 It will log everything to:
 
 ~/ros2_microros_install.log
+
+
+
+
+Or clone this and run the .sh file
+
