@@ -1,0 +1,102 @@
+#!/bin/bash
+# ===============================================================
+# ROS 2 Foxy + micro-ROS Agent Installation Script for Jetson
+# ===============================================================
+
+set -e  # Exit on error
+LOGFILE=~/ros2_microros_install.log
+exec > >(tee -a "$LOGFILE") 2>&1
+
+echo "==============================================================="
+echo "Starting ROS 2 Foxy and micro-ROS Agent installation on Jetson"
+echo "==============================================================="
+
+# -----------------------------
+# 1. Locale Configuration
+# -----------------------------
+echo "[1/8] Setting up locale..."
+sudo apt update -y
+sudo apt install -y locales
+sudo locale-gen en_US en_US.UTF-8
+sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+export LANG=en_US.UTF-8
+
+echo "Locale configured as:"
+locale
+
+# -----------------------------
+# 2. Add ROS 2 APT Repository
+# -----------------------------
+echo "[2/8] Adding ROS 2 repository..."
+sudo apt install -y software-properties-common curl gnupg2 lsb-release
+sudo add-apt-repository universe -y
+sudo apt update -y
+
+sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+    -o /usr/share/keyrings/ros-archive-keyring.gpg
+
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] \
+http://packages.ros.org/ros2/ubuntu $(lsb_release -sc) main" | \
+sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
+sudo apt update -y
+
+# -----------------------------
+# 3. Install ROS 2 Foxy
+# -----------------------------
+echo "[3/8] Installing ROS 2 Foxy base..."
+sudo apt install -y ros-foxy-ros-base ros-foxy-demo-nodes-cpp ros-foxy-demo-nodes-py
+
+# -----------------------------
+# 4. Source ROS 2 Environment
+# -----------------------------
+echo "[4/8] Sourcing ROS 2 environment..."
+if ! grep -q "source /opt/ros/foxy/setup.bash" ~/.bashrc; then
+    echo "source /opt/ros/foxy/setup.bash" >> ~/.bashrc
+fi
+source /opt/ros/foxy/setup.bash
+
+# -----------------------------
+# 5. Install Development Tools
+# -----------------------------
+echo "[5/8] Installing development tools..."
+sudo apt install -y python3-colcon-common-extensions python3-argcomplete build-essential git
+
+# -----------------------------
+# 6. Create micro-ROS Workspace
+# -----------------------------
+echo "[6/8] Creating micro-ROS workspace..."
+mkdir -p ~/microros_ws/src
+cd ~/microros_ws/src
+
+if [ ! -d "micro-ROS-Agent" ]; then
+    git clone -b foxy https://github.com/micro-ROS/micro-ROS-Agent.git
+fi
+if [ ! -d "micro-ROS-msgs" ]; then
+    git clone -b foxy https://github.com/micro-ROS/micro-ROS-msgs.git
+fi
+
+# -----------------------------
+# 7. Build micro-ROS Agent
+# -----------------------------
+echo "[7/8] Building micro-ROS Agent..."
+cd ~/microros_ws
+source /opt/ros/foxy/setup.bash
+colcon build --symlink-install
+
+# -----------------------------
+# 8. Source micro-ROS Environment
+# -----------------------------
+echo "[8/8] Sourcing micro-ROS workspace..."
+if ! grep -q "source ~/microros_ws/install/setup.bash" ~/.bashrc; then
+    echo "source ~/microros_ws/install/setup.bash" >> ~/.bashrc
+fi
+source ~/microros_ws/install/setup.bash
+
+echo "==============================================================="
+echo "Installation completed successfully!"
+echo "To verify, try running:"
+echo "  ros2 run demo_nodes_cpp talker"
+echo "  ros2 run demo_nodes_cpp listener"
+echo "  ros2 run micro_ros_agent micro_ros_agent --help"
+echo "==============================================================="
